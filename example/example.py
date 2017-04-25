@@ -3,14 +3,14 @@ from pony import orm
 import os
 
 def bind_to_database(db):
-    db.bind("postgres", host="posgres", user="some_user", password="1234secure", database="db1")
+    db.bind("sqlite", filename="file:testdb?mode=memory&cache=shared")
     db.generate_mapping(create_tables=True)
     # see methods in https://docs.ponyorm.com/api_reference.html?highlight=database#Database
 # end def
 
 # you can just use /path/to/examples/migrations instead of this `migrations_folder`
 # this line is just to get it dynamically.
-migrations_folder = os.path.join(os.path.pardir(os.path.abspath(__file__)), "migrations")
+migrations_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), "migrations")
 
 python_import = "migrations"  # Like in `from migrations import v0`
 
