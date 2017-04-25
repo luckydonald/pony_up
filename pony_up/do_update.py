@@ -97,15 +97,31 @@ def register_version_table(db):
             "You don't need to specify them in your own migrations."
         )
     return _version_db_register_database(db)
+# end def
 
-def do_version(version_module, bind_database_function, old_db=None):
+
+def do_version(version_module, bind_database_function, old_version, old_db=None):  # todo rename "run_version"
     """
-    Creates a new db, registers vNEW model, and runs migrate.do_update(old_db, vNEW_db)
+    Creates a new db, registers vNEW model, and runs `migrate.do_update(old_db, vNEW_db)`
+    
+    First loads the new schema (`.model`) if existent, else uses the provided `old_db`.
+    If there are migrations (`.migrate`), they are run too.
+    
+    Returns a tuple with the most recent schema in the first slot,
+    and the result of the migration function or `None` if not migrated as the second slot.
      
+    
     :param version_module: the module, with a `.model` and optionally a `.migrate`
+    
     :param bind_database_function: The function to bind to a database. Needs to include `db.bind(...)` and `db.generate_mapping(...)`
+    
+    :param old_version: the version before the migration
+    :type  old_version: int
+    
     :param old_db: the database before the migration, so you can copy from one to another.
                    This will be None for the first migration (e.g. v0).
+    :type  old_db: None | orm.core.Database
+    
     :return: Tuple (db, do_update_result).
              `db` being the new version (mapping) of the database,
              `do_update_result` is `None` if no migration was run. In case of migration happening, it is the result of calling `version_module.migrate.do_update(db, old_db)`. Should be a tuple of it's own, `(new_version:int, metadata:dict)`.
@@ -117,14 +133,31 @@ def do_version(version_module, bind_database_function, old_db=None):
             "which will run `db.bind(...)` and `db.generate_mapping(...)`."
         )
     # end if
-    db = orm.Database()
-    version_module.model.register_database(db)
-    register_version_table(db)
-    bind_database_function(db)
-    if hasattr(version_module, "migrate"):
-        return db, version_module.migrate.do_update(db, old_db)
+    if hasattr(version_module, "model"):
+        new_db = orm.Database()
+        setattr(new_db, "pony_up__version", old_version)
+        version_module.model.register_database(new_db)
+        bind_database_function(new_db)
+        register_version_table(new_db)
+        if hasattr(version_module, "migrate"):
+            # A: model + migrate (both | See "v0" or "v1" in Fig.1)
+            return new_db, version_module.migrate.do_update(new_db=new_db, old_db=old_db)
+        else:
+            # B: model + _______ (model only | See "v3" or "v4" in Fig.1))
+            return new_db, None
+        # end def
+    else:
+        if hasattr(version_module, "migrate"):
+            # C: _____ + migrate (only migrate | See "v2" in Fig.1))
+            return old_version, version_module.migrate.do_update(old_db=old_db, new_db=None)
+        else:
+            # D: _____ + _____ (nothing)
+            raise ValueError(
+                "The given `version_module` does neither has a `.model` nor a `.migrate` attribute.\n"
+                "Maybe you need a `from . import model, migrate` in the `__init__.py` file?"
+            )
+        # end def
     # end def
-    return db, None
 # end def
 
 
@@ -219,7 +252,7 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
                     )
                 )
             # end if
-            db, version_meta = do_version(bind_database_function, module, old_db=db)
+            db, version_meta = do_version(module, bind_database_function, old_db=db)
             new_version, meta = version_meta
             new_version_db = store_new_version(db, new_version, meta)
 
