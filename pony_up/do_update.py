@@ -68,39 +68,50 @@ def get_current_version(db):
 # end def
 
 
-def do_version(version_module, old_db=None):
+def bind_database_default(db):
+    """
+    Creates the bind command and connects a postgres database.
+    
+    This is the default function (for unit tests and the like)
+    Override it with setting `bind_database_function(db)` as keyword argument on the required function.
+    It should include `db.bind(...)` and `db.generate_mapping(...)`
+
+    :param db: 
+    :return: 
+    """
+    raise NotImplementedError("Please use a custom function by providing a function as `bind_database_function`.")
+    return db
+# end def
+
+
+def do_version(version_module, bind_database_function, old_db=None):
     """
     Creates a new db, registers vNEW model, and runs migrate.do_update(old_db, vNEW_db)
      
-    :param version_module: 
-    :param old_db: 
-    :return: 
+    :param version_module: the module, with a `.model` and optionally a `.migrate`
+    :param bind_database_function: The function to bind to a database. Needs to include `db.bind(...)` and `db.generate_mapping(...)`
+    :param old_db: the database before the migration, so you can copy from one to another.
+                   This will be None for the first migration (e.g. v0).
+    :return: Tuple (db, do_update_result).
+             `db` being the new version (mapping) of the database,
+             `do_update_result` is `None` if no migration was run. In case of migration happening, it is the result of calling `version_module.migrate.do_update(db, old_db)`. Should be a tuple of it's own, `(new_version:int, metadata:dict)`.
+    :rtype: tuple( orm.core.Database, None | tuple(int, dict) )
     """
-    print("do_update: do_version")
+    if bind_database_function is None:
+        raise ValueError(
+            "Please provide a function accepting the database `pony.orm.Database` "
+            "which will run `db.bind(...)` and `db.generate_mapping(...)`."
+        )
+    # end if
     db = orm.Database()
     version_module.model.register_database(db)
-    bind_database(db)
+    bind_database_function(db)
     if hasattr(version_module, "migrate"):
         return db, version_module.migrate.do_update(db, old_db)
     # end def
     return db, None
 # end def
 
-
-def bind_database(db):
-    """
-    Creates the bind command and connects a postgres database.
-    
-    :param db: 
-    :return: 
-    """
-    from secrets import POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-    db.bind("postgres", host=POSTGRES_HOST, user=POSTGRES_USER, password=POSTGRES_PASSWORD, database=POSTGRES_DB)
-    db.generate_mapping(create_tables=True)
-    logger.debug(
-        "Generated Schema: \n===SQL===\n" + db.schema.generate_create_script() + "\n===END===")
-    return db
-# end def
 
 @orm.db_session
 def store_new_version(db, version_no, meta=None):
@@ -119,57 +130,75 @@ def store_new_version(db, version_no, meta=None):
 # end def
 
 
-def do_all_migrations(import_path="migrations", relative_import="database_migrations.migrations"):
+def do_all_migrations(bind_database_function, folder_path, python_import):
+    """
+    This will load and execute all needed migrations.
+    Also it will return the latest database definition when done.
+     
+    :param bind_database_function: The function to bind to a database. Needs to include `db.bind(...)` and `db.generate_mapping(...)`  
+    :param folder_path: the path of the folder where the versions are stored in.
+                        Caution: If specified relative, it is relative to this file (pony_up.do_update).
+                        Example: `"/path/to/migrations"`
+                        
+    :param python_import: the python import path. This corespondes to the way you would import it normally.
+                          Example: "somewhere.migrations" (like in `from somewhere.migrations import v0`)
+    :return: 
+    """
+    if bind_database_function is None:
+        raise ValueError(
+            "Please provide a function accepting the database `pony.orm.Database` "
+            "which will run `db.bind(...)` and `db.generate_mapping(...)`."
+        )
+    # end if
     from . import version_db
 
     db = orm.Database()
     version_db.register_database(db)
-    bind_database(db)
+    bind_database_function(db)
     current_version_db = get_current_version(db)
     db_version = current_version_db.version
     del db
 
-    file_names_found = enumerate_migrations(import_path)
+    # get the versions modules
+    file_names_found = enumerate_migrations(folder_path)
     logger.debug("migration files: {!r}".format(file_names_found))
+    # iterate through the folder with versions
     for name, file_name in dict.items(file_names_found):
         logger.debug("name {!r}, file_name {!r}".format(name, file_name))
         if not name.startswith("v"):
-            logger.debug("skipping module, format wrong.\nExpected 'v{{number}}', got {module_name!r}".format(module_name=name))
+            logger.debug("skipping module, format wrong.\nExpected format 'v{{number}}', got {module_name!r}".format(module_name=name))
             continue
         # end def
         try:
             version = int(name[1:])
         except:
-            logger.debug("skipping module, version int malformatted.\nExpected 'v{{number}}', got {module_name!r}".format(module_name=name))
+            logger.debug("skipping module, version int malformatted.\nExpected format 'v{{number}}', got {module_name!r}".format(module_name=name))
             continue
         # end try
         if version < db_version:
             logger.debug("skipping module, version {load!r} smaller than current {db!r}.".format(load=version, db=db_version))
             continue
         # end def
-        module = importlib.import_module(relative_import + "." + name)
-        logger.debug("version {!r}: name {!r}, file_name {!r}, module {!r}".format(version, name, file_name, module.__name__))
-
+        module = importlib.import_module(python_import + "." + name)
+        logger.debug("found module {m!r} (name: {n!r}, file_name: {f!r}, version parsed: {v!r}), ".format(v=version, n=name, f=file_name, m=module.__name__))
         migrations[version] = module
     # end for
 
     db = None
-    # iterate though the versions:
+    # iterate though the versions in ascending version order, and run them.
     for v, module in sorted(migrations.items(), key=lambda x: x[0]):
         logger.debug("preparing update from version {v!r}".format(v=v))
         if hasattr(module, "migrate"):
             logger.debug("applying migrations from version {v!r}".format(v=v))
-            db, version_meta = do_version(module, old_db=db)
+            db, version_meta = do_version(bind_database_function, module, old_db=db)
             new_version, meta = version_meta
             store_new_version(db, new_version, meta)
             logger.success("Upgraded to version {v!r} {meta!r}".format(v=v, meta=repr(meta["message"]) if "message" in meta else "").strip())
         else:
             db = orm.Database()
             module.model.register_database(db)
-            bind_database(db)
+            bind_database_function(db)
         # end if
     # end for
     return db
 # end def
-
-db = do_all_migrations()
