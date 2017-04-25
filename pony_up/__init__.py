@@ -1,0 +1,1 @@
+from .do_update import do_all_migrations as migrate
