@@ -2,11 +2,13 @@ from pony_up import migrate
 from pony import orm
 import os
 
+
 def bind_to_database(db):
-    db.bind("sqlite", filename="file:testdb?mode=memory&cache=shared")
+    db.bind("sqlite", filename="test.db", create_db=True)
     db.generate_mapping(create_tables=True)
     # see methods in https://docs.ponyorm.com/api_reference.html?highlight=database#Database
 # end def
+
 
 # you can just use /path/to/examples/migrations instead of this `migrations_folder`
 # this line is just to get it dynamically.
