@@ -8,7 +8,7 @@ here = path.abspath(path.dirname(__file__))
 long_description = """This will add a module for simple database migrations to PonyORM."""
 
 setup(
-    name='pony_up', version="0.1.0",
+    name='pony_up', version="0.1.1",
     description='Migrations for PonyORM',
     long_description=long_description,
     # The project's main homepage.

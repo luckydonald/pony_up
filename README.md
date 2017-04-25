@@ -1,4 +1,5 @@
 # PonyUp!
+###### Version `0.1.1`
 Migrations for ponyorm
 
 ## Very simple migrations.
@@ -37,3 +38,22 @@ The updates are applied as soon as `migrate` is called. It will return `db`, bei
     - `v{number}.py`:
         A file is possible too, if it has the attribute `model` with a function `register_database` (calling `model.register_database(db)`)
         and optionally a `migrate` attribute with function `do_update` (will call `migrate.do_update(db)`)
+
+
+### FAQ
+##### How to use
+> See above, or have a look at the example.
+
+##### Can I contribute?
+> Please do!
+> Report issues, suggest features, or even submit code!
+
+##### Where does the name come from?
+> Because of the library `PonyORM`, the verb `to pony up` and this tool doing `updates`!
+> Got it? Yeah, what a sick joke! Tell your Grandma, too!
+
+##### Who is best pony?
+> Definitely **Littlepip** (see [Fallout: Equestria]((http://falloutequestria.wikia.com/wiki/Fallout:_Equestria))!
+
+##### Why is this FAQ not helpful?
+> lel.
