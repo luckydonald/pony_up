@@ -7,7 +7,7 @@ from pony import orm
 from luckydonaldUtils.logger import logging
 from luckydonaldUtils.exceptions import assert_or_raise as assert_type_or_raise
 
-from .errors import VersionTableAlreadyExists
+from .errors import MigrationVersionTableAlreadyExists, MigrationVersionWrong
 from .version_db import register_database as _version_db_register_database
 
 __author__ = 'luckydonald'
@@ -92,7 +92,7 @@ def register_version_table(db):
     """
     assert_type_or_raise(db, orm.core.Database)
     if "Version" in db.entities:
-        raise VersionTableAlreadyExists(
+        raise MigrationVersionTableAlreadyExists(
             "Tried to add the `Version` table, but is already present.\n"
             "You don't need to specify them in your own migrations."
         )
@@ -208,6 +208,16 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
                 logger.warn("Skipping migration (needs database version {v}). We already have version {curr_v}.".format(
                     v=v, curr_v=current_version
                 ))
+                continue
+            # end if
+            if current_version != v:
+                raise MigrationVersionWrong(  # database version < migration start version
+                    "Next migration starts with database version {loaded_v}, "
+                    "but the database is still at version {curr_v}.\n"
+                    "This means a migration must be missing.".format(
+                        loaded_v=v, curr_v = current_version
+                    )
+                )
             # end if
             db, version_meta = do_version(bind_database_function, module, old_db=db)
             new_version, meta = version_meta
