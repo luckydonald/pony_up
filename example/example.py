@@ -5,6 +5,7 @@ import os
 def bind_to_database(db):
     db.bind("postgres", host="posgres", user="some_user", password="1234secure", database="db1")
     db.generate_mapping(create_tables=True)
+    # see methods in https://docs.ponyorm.com/api_reference.html?highlight=database#Database
 # end def
 
 # you can just use /path/to/examples/migrations instead of this `migrations_folder`
