@@ -38,7 +38,7 @@ The updates are applied as soon as `migrate` is called. It will return `db`, bei
         - `model.py`: model of version `{number}`
         - `migrate.py`: the script which updates from `{number}` to `{number+1}`
     - `v{number}.py`:    
-        A file is possible too, if it has the attribute `model` with a function `register_database` (calling `model.register_database(db)`)
+        A file is possible too, if it has the attribute `model` with a function `register_database` (calling `model.register_database(db)`)    
         and optionally a `migrate` attribute with function `do_update` (will call `migrate.do_update(db)`)
 
 ### Info graphic
@@ -53,12 +53,35 @@ _Fig 1. Migrations_
 > Please do!    
 > Report issues, suggest features, or even submit code!
 
+##### I don't like using `db.{EntityName}`.
+I have used the file `database.py` before, to include all my objects,
+and still like to use the existing import statements. I imported:
+```python
+from database import {EntityName}
+```
+or even import all the database entities with the wildcard import
+```python
+from database import *
+```
+
+> You should move the entity definitions in `database.py` into a migrations step (`v0.model` perhaps),
+> and replace the file content with `db = migrate(...)`, like seen above.    
+> Now you can add the following lines after said `db = migrate(...)` part:    
+> ```python
+> # register the tables to this module
+> __all__ = ["db"]
+> for t_name, t_clazz in db.entities.items():
+>     globals()[t_name] = t_clazz
+>     __all__.append(t_name)
+> # end for
+> ```
+
 ##### Where does the name come from?
-> Because of the library `PonyORM`, the verb `to pony up` and this tool doing `updates`!    
+> Because of the library `Pony ORM`, the verb `to pony up` and this tool doing `updates`!    
 > Got it? Yeah, what a sick joke! Tell your Grandma, too!
 
 ##### Who is best pony?
-> Definitely **Littlepip** (see [Fallout: Equestria]((http://falloutequestria.wikia.com/wiki/Fallout:_Equestria))!
+> Definitely **Littlepip**! (see [Fallout: Equestria](http://falloutequestria.wikia.com/wiki/Fallout:_Equestria))
 
-##### Why is this FAQ not helpful?
+##### Why is this FAQ getting stupid now?
 > lel.
