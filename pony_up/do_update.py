@@ -2,19 +2,19 @@
 import importlib
 import os
 
+from pony import orm
+
 from luckydonaldUtils.logger import logging
 from luckydonaldUtils.exceptions import assert_or_raise as assert_type_or_raise
 
+from .errors import VersionTableAlreadyExists
+from .version_db import register_database as _version_db_register_database
 
 __author__ = 'luckydonald'
 logger = logging.getLogger(__name__)
-from pony import orm
 
-from datetime import datetime
-from uuid import UUID, uuid4
-from luckydonaldUtils.logger import logging
 
-migrations = {}  # { old_version: module }
+migrations = {}  # schema: { version_migrating_from: imported_module }
 
 
 def enumerate_migrations(import_path):
@@ -76,13 +76,27 @@ def bind_database_default(db):
     Override it with setting `bind_database_function(db)` as keyword argument on the required function.
     It should include `db.bind(...)` and `db.generate_mapping(...)`
 
-    :param db: 
+    :param db:
     :return: 
     """
     raise NotImplementedError("Please use a custom function by providing a function as `bind_database_function`.")
-    return db
 # end def
 
+
+def register_version_table(db):
+    """
+    This adds the version table (needed for tracking the applied migrations) to a database.
+    
+    :param db: the database
+    :return: None?
+    """
+    assert_type_or_raise(db, orm.core.Database)
+    if "Version" in db.entities:
+        raise VersionTableAlreadyExists(
+            "Tried to add the `Version` table, but is already present.\n"
+            "You don't need to specify them in your own migrations."
+        )
+    return _version_db_register_database(db)
 
 def do_version(version_module, bind_database_function, old_db=None):
     """
@@ -105,6 +119,7 @@ def do_version(version_module, bind_database_function, old_db=None):
     # end if
     db = orm.Database()
     version_module.model.register_database(db)
+    register_version_table(db)
     bind_database_function(db)
     if hasattr(version_module, "migrate"):
         return db, version_module.migrate.do_update(db, old_db)
@@ -150,18 +165,17 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
             "which will run `db.bind(...)` and `db.generate_mapping(...)`."
         )
     # end if
-    from . import version_db
 
     db = orm.Database()
-    version_db.register_database(db)
+    register_version_table(db)
     bind_database_function(db)
     current_version_db = get_current_version(db)
-    db_version = current_version_db.version
+    current_version = current_version_db.version
     del db
 
     # get the versions modules
     file_names_found = enumerate_migrations(folder_path)
-    logger.debug("migration files: {!r}".format(file_names_found))
+    logger.debug("Found the following migration files: {!r}".format(file_names_found))
     # iterate through the folder with versions
     for name, file_name in dict.items(file_names_found):
         logger.debug("name {!r}, file_name {!r}".format(name, file_name))
@@ -175,8 +189,8 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
             logger.debug("skipping module, version int malformatted.\nExpected format 'v{{number}}', got {module_name!r}".format(module_name=name))
             continue
         # end try
-        if version < db_version:
-            logger.debug("skipping module, version {load!r} smaller than current {db!r}.".format(load=version, db=db_version))
+        if version < current_version:
+            logger.debug("skipping module, version {load!r} smaller than current {db!r}.".format(load=version, db=current_version))
             continue
         # end def
         module = importlib.import_module(python_import + "." + name)
@@ -189,13 +203,28 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
     for v, module in sorted(migrations.items(), key=lambda x: x[0]):
         logger.debug("preparing update from version {v!r}".format(v=v))
         if hasattr(module, "migrate"):
-            logger.debug("applying migrations from version {v!r}".format(v=v))
+            logger.info("Migrating from {v!r}".format(v=v))
+            if current_version > v:
+                logger.warn("Skipping migration (needs database version {v}). We already have version {curr_v}.".format(
+                    v=v, curr_v=current_version
+                ))
+            # end if
             db, version_meta = do_version(bind_database_function, module, old_db=db)
             new_version, meta = version_meta
-            store_new_version(db, new_version, meta)
-            logger.success("Upgraded to version {v!r} {meta!r}".format(v=v, meta=repr(meta["message"]) if "message" in meta else "").strip())
+            new_version_db = store_new_version(db, new_version, meta)
+
+            # Save version for next loop.
+            current_version = new_version
+            current_version_db = new_version_db
+            logger.success("Upgraded from {old_v!r} to version {new_v!r}{meta_message!r}".format(old_v=v, new_v=new_version, meta_message=(": " + repr(meta["message"])) if "message" in meta else " - Metadata: " + repr(meta)).strip())
+            if new_version != v+1:
+                logger.warn("Migrated from {old_v!r} to {new_v!r}, instead of {should_v!r}, skipping {diff!r} versions.".format(
+                    old_v=v, new_v=new_version, should_v=v+1, diff=new_version-(v+1)
+                ))
+            # end if
         else:
             db = orm.Database()
+            register_version_table(db)
             module.model.register_database(db)
             bind_database_function(db)
         # end if
