@@ -21,7 +21,7 @@ from pony_up import migrate
 def bind_func(db):
     db.bind('database type', host='localhost', user='root', passwd='1234secure', db='test1')
     # https://docs.ponyorm.com/api_reference.html#Database.bind
-    db.generate_mappings(create_tables=True)
+    db.generate_mapping(create_tables=True)
     # https://docs.ponyorm.com/api_reference.html#Database.generate_mapping
 # end def
 
