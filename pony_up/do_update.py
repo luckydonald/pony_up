@@ -134,6 +134,7 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
         )
     # end if
     if hasattr(version_module, "model"):
+        logger.info("Loading model v{v!r}.".format(v=old_version))
         new_db = orm.Database()
         setattr(new_db, "pony_up__version", old_version)
         version_module.model.register_database(new_db)
@@ -141,17 +142,22 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
         bind_database_function(new_db)
         if hasattr(version_module, "migrate"):
             # A: model + migrate (both | See "v0" or "v1" in Fig.1)
+            logger.info("Migrating from {v!r}".format(v=old_version))
             return new_db, version_module.migrate.do_update(new_db, old_db=old_db)
         else:
+            logger.debug("No migration for v{v!r}".format(v=old_version))
             # B: model + _______ (model only | See "v3" or "v4" in Fig.1))
             return new_db, None
         # end def
     else:
+        logger.info("Using old model v{v!r}".format(v=old_version))
         if hasattr(version_module, "migrate"):
             # C: _____ + migrate (only migrate | See "v2" in Fig.1))
+            logger.info("Migrating from {v!r}".format(v=old_version))
             return old_db, version_module.migrate.do_update(old_db, old_db=True)
         else:
             # D: _____ + _____ (nothing)
+            logger.debug("No migration for v{v!r}".format(v=old_version))
             raise ValueError(
                 "The given `version_module` does neither has a `.model` nor a `.migrate` attribute.\n"
                 "Maybe you need a `from . import model, migrate` in the `__init__.py` file?"
@@ -234,41 +240,33 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
     # iterate though the versions in ascending version order, and run them.
     for v, module in sorted(migrations.items(), key=lambda x: x[0]):
         logger.debug("preparing update from version {v!r}".format(v=v))
-        if hasattr(module, "migrate"):
-            logger.info("Migrating from {v!r}".format(v=v))
-            if current_version > v:
-                logger.warn("Skipping migration (needs database version {v}). We already have version {curr_v}.".format(
-                    v=v, curr_v=current_version
-                ))
-                continue
-            # end if
-            if current_version != v:
-                raise MigrationVersionWrong(  # database version < migration start version
-                    "Next migration starts with database version {loaded_v}, "
-                    "but the database is still at version {curr_v}.\n"
-                    "This means a migration must be missing.".format(
-                        loaded_v=v, curr_v=current_version
-                    )
+        if current_version > v:
+            logger.warn("Skipping migration (needs database version {v}). We already have version {curr_v}.".format(
+                v=v, curr_v=current_version
+            ))
+            continue
+        # end if
+        if current_version != v:
+            raise MigrationVersionWrong(  # database version < migration start version
+                "Next migration starts with database version {loaded_v}, "
+                "but the database is still at version {curr_v}.\n"
+                "This means a migration must be missing.".format(
+                    loaded_v=v, curr_v=current_version
                 )
-            # end if
-            db, version_meta = do_version(module, bind_database_function, current_version, old_db=db)
-            new_version, meta = version_meta
-            new_version_db = store_new_version(db, new_version, meta)
+            )
+        # end if
+        db, version_meta = do_version(module, bind_database_function, current_version, old_db=db)
+        new_version, meta = version_meta
+        new_version_db = store_new_version(db, new_version, meta)
 
-            # Save version for next loop.
-            current_version_db = new_version_db
-            current_version = new_version
-            logger.success("Upgraded from {old_v!r} to version {new_v!r}{meta_message!r}".format(old_v=v, new_v=new_version, meta_message=(": " + repr(meta["message"])) if "message" in meta else " - Metadata: " + repr(meta)).strip())
-            if new_version != v+1:
-                logger.warn("Migrated from {old_v!r} to {new_v!r}, instead of {should_v!r}, skipping {diff!r} versions.".format(
-                    old_v=v, new_v=new_version, should_v=v+1, diff=new_version-(v+1)
-                ))
-            # end if
-        else:
-            db = orm.Database()
-            register_version_table(db)
-            module.model.register_database(db)
-            bind_database_function(db)
+        # Save version for next loop.
+        current_version_db = new_version_db
+        current_version = new_version
+        logger.success("Upgraded from {old_v!r} to version {new_v!r}{meta_message!r}".format(old_v=v, new_v=new_version, meta_message=(": " + repr(meta["message"])) if "message" in meta else " - Metadata: " + repr(meta)).strip())
+        if new_version != v+1:
+            logger.warn("Migrated from {old_v!r} to {new_v!r}, instead of {should_v!r}, skipping {diff!r} versions.".format(
+                old_v=v, new_v=new_version, should_v=v+1, diff=new_version-(v+1)
+            ))
         # end if
     # end for
     return db
