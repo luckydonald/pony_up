@@ -208,8 +208,10 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
     db = orm.Database()
     register_version_table(db)
     bind_database_function(db)
+
     current_version_db = get_current_version(db)
     current_version = current_version_db.version
+    start_version = current_version
 
     # get the versions modules
     file_names_found = enumerate_migrations(folder_path)
@@ -280,5 +282,8 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
             )
         # end if
     # end for
+    logger.success("Migration done. Was {v_old!r} before, now is {v_new!r}.".format(
+        v_old=start_version, v_new=current_version
+    ))
     return db
 # end def
