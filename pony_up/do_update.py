@@ -279,6 +279,6 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
                 "Loaded schema {v!r}".format(v=current_version)
             )
         # end if
-# end for
+    # end for
     return db
 # end def
