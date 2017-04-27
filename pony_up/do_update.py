@@ -141,7 +141,7 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
         bind_database_function(new_db)
         if hasattr(version_module, "migrate"):
             # A: model + migrate (both | See "v0" or "v1" in Fig.1)
-            return new_db, version_module.migrate.do_update(new_db=new_db, old_db=old_db)
+            return new_db, version_module.migrate.do_update(new_db, old_db=old_db)
         else:
             # B: model + _______ (model only | See "v3" or "v4" in Fig.1))
             return new_db, None
@@ -149,7 +149,7 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
     else:
         if hasattr(version_module, "migrate"):
             # C: _____ + migrate (only migrate | See "v2" in Fig.1))
-            return old_db, version_module.migrate.do_update(old_db=old_db, new_db=None)
+            return old_db, version_module.migrate.do_update(old_db, old_db=True)
         else:
             # D: _____ + _____ (nothing)
             raise ValueError(
