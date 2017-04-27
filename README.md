@@ -104,6 +104,39 @@ from database import *
 > # end for
 > ```
 
+##### My application with the migration will run multible times at the same time
+> You need to deploy some sort of locking, because else two clients trying to modify the same tables would end in a disaster.    
+> If you use postgres, you can use [Advisory Locks](https://www.postgresql.org/docs/9.1/static/explicit-locking.html#ADVISORY-LOCKS). (Also see this [blog post with exaples](https://hashrocket.com/blog/posts/advisory-locks-in-postgres).    
+> Request a lock before the `db = migrate(...)`, and release it afterwards:
+> ```python
+> import psycopg2
+> con = psycopg2.connect(host=POSTGRES_HOST, user=POSTGRES_USER, password=POSTGRES_PASSWORD, database=POSTGRES_DB)
+> cur = con.cursor()
+>
+> # requesting database update lock
+> cur.execute("SELECT pg_try_advisory_lock(85,80);")  # update lock (ascii: UP)
+> res = cur.fetchone()
+> if not isinstance(res[0], bool) or not res[0]:
+>     # True = success
+>     # Fail => false or no bool
+>     raise ValueError("Currently already upgrading. (Advisory Lock 85,80)")
+> # end if
+> 
+> 
+> # run the migration
+> db = migrate(...)
+> 
+> 
+> # releasing lock after database update
+> cur.execute("SELECT pg_advisory_unlock(85,80);")  # update lock (ascii: UP)
+> res = cur.fetchone()
+> if not isinstance(res[0], bool) or not res[0]:
+>     # True = success
+>     # Fail => false or no bool
+>     raise ValueError("Could not release update lock, lock was not held (Advisory Lock 85,80)")
+> # end if
+> ```
+
 ##### Where does the name come from?
 > Because of the library `Pony ORM`, the verb `to pony up` and this tool doing `updates`!    
 > Got it? Yeah, what a sick joke! Tell your Grandma, too!
