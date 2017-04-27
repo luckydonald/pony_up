@@ -215,7 +215,7 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
 
     # get the versions modules
     file_names_found = enumerate_migrations(folder_path)
-    logger.debug("Found the following migration files: {!r}".format(file_names_found))
+    logger.debug("found the following migration files: {!r}".format(file_names_found))
     # iterate through the folder with versions
     for name, file_name in dict.items(file_names_found):
         logger.debug("name {!r}, file_name {!r}".format(name, file_name))
@@ -243,7 +243,7 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
     for v, module in sorted(migrations.items(), key=lambda x: x[0]):
         logger.debug("preparing update from version {v!r}".format(v=v))
         if current_version > v:
-            logger.warn("Skipping migration (needs database version {v}). We already have version {curr_v}.".format(
+            logger.warn("skipping migration (needs database version {v}). We already have version {curr_v}.".format(
                 v=v, curr_v=current_version
             ))
             continue
@@ -265,25 +265,25 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
             current_version_db = new_version_db
             current_version = new_version
             logger.success(
-                "Upgraded from version {old_v!r} to v{new_v!r}{meta_message!r}".format(
+                "upgraded from version {old_v!r} to v{new_v!r}{meta_message!r}".format(
                     old_v=v, new_v=new_version, meta_message=(
                         (": " + repr(meta["message"])) if "message" in meta else " - Metadata: " + repr(meta)
                 ).strip())
             )
             if new_version != v + 1:
                 logger.warn(
-                    "Migrated from version {old_v!r} to v{new_v!r} "
+                    "migrated from version {old_v!r} to v{new_v!r} "
                     "(instead of v{should_v!r}, it skipped {diff!r} versions)".format(
                         old_v=v, new_v=new_version, should_v=v + 1, diff=new_version - (v + 1)
                     ))
                 # end if
         else:
             logger.info(
-                "Loaded schema {v!r}".format(v=current_version)
+                "loaded schema {v!r}".format(v=current_version)
             )
         # end if
     # end for
-    logger.success("Migration done. Was version {v_old!r} before, now is version {v_new!r}.".format(
+    logger.success("migration from version {v_old!r} to version {v_new!r} done.".format(
         v_old=start_version, v_new=current_version
     ))
     return db

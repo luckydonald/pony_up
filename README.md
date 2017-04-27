@@ -106,7 +106,7 @@ from database import *
 
 ##### My application with the migration will run multible times at the same time
 > You need to deploy some sort of locking, because else two clients trying to modify the same tables would end in a disaster.    
-> If you use postgres, you can use [Advisory Locks](https://www.postgresql.org/docs/9.1/static/explicit-locking.html#ADVISORY-LOCKS). (Also see this [blog post with exaples](https://hashrocket.com/blog/posts/advisory-locks-in-postgres).    
+> If you use postgres, you can use [Advisory Locks](https://www.postgresql.org/docs/9.1/static/explicit-locking.html#ADVISORY-LOCKS). (Also see this [blog post with examples](https://hashrocket.com/blog/posts/advisory-locks-in-postgres)).    
 > Request a lock before the `db = migrate(...)`, and release it afterwards:
 > ```python
 > import psycopg2
