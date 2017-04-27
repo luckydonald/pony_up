@@ -255,19 +255,30 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
                 )
             )
         # end if
-        db, version_meta = do_version(module, bind_database_function, current_version, old_db=db)
-        new_version, meta = version_meta
-        new_version_db = store_new_version(db, new_version, meta)
-
-        # Save version for next loop.
-        current_version_db = new_version_db
-        current_version = new_version
-        logger.success("Upgraded from {old_v!r} to version {new_v!r}{meta_message!r}".format(old_v=v, new_v=new_version, meta_message=(": " + repr(meta["message"])) if "message" in meta else " - Metadata: " + repr(meta)).strip())
-        if new_version != v+1:
-            logger.warn("Migrated from {old_v!r} to {new_v!r}, instead of {should_v!r}, skipping {diff!r} versions.".format(
-                old_v=v, new_v=new_version, should_v=v+1, diff=new_version-(v+1)
-            ))
+        db, version_and_meta = do_version(module, bind_database_function, current_version, old_db=db)
+        if version_and_meta:
+            new_version, meta = version_and_meta
+            new_version_db = store_new_version(db, new_version, meta)
+            # Save version for next loop.
+            current_version_db = new_version_db
+            current_version = new_version
+            logger.success(
+                "Upgraded from {old_v!r} to version {new_v!r}{meta_message!r}".format(
+                    old_v=v, new_v=new_version, meta_message=(
+                        (": " + repr(meta["message"])) if "message" in meta else " - Metadata: " + repr(meta)
+                ).strip())
+            )
+            if new_version != v + 1:
+                logger.warn(
+                    "Migrated from {old_v!r} to {new_v!r}, instead of {should_v!r}, it skipped {diff!r} versions.".format(
+                        old_v=v, new_v=new_version, should_v=v + 1, diff=new_version - (v + 1)
+                    ))
+                # end if
+        else:
+            logger.info(
+                "Loaded schema {v!r}".format(v=current_version)
+            )
         # end if
-    # end for
+# end for
     return db
 # end def
