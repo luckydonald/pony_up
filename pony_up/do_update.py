@@ -134,7 +134,7 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
         )
     # end if
     if hasattr(version_module, "model"):
-        logger.info("Loading model v{v!r}.".format(v=old_version))
+        logger.info("loading model version {v!r}.".format(v=old_version))
         new_db = orm.Database()
         setattr(new_db, "pony_up__version", old_version)
         version_module.model.register_database(new_db)
@@ -142,22 +142,22 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
         bind_database_function(new_db)
         if hasattr(version_module, "migrate"):
             # A: model + migrate (both | See "v0" or "v1" in Fig.1)
-            logger.info("Migrating from {v!r}".format(v=old_version))
+            logger.info("migrating from version {v!r}".format(v=old_version))
             return new_db, version_module.migrate.do_update(new_db, old_db=old_db)
         else:
-            logger.debug("No migration for v{v!r}".format(v=old_version))
+            logger.debug("no migration for version {v!r}".format(v=old_version))
             # B: model + _______ (model only | See "v3" or "v4" in Fig.1))
             return new_db, None
         # end def
     else:
-        logger.info("Using old model v{v!r}".format(v=old_version))
+        logger.info("using old model version {v!r}".format(v=old_version))
         if hasattr(version_module, "migrate"):
             # C: _____ + migrate (only migrate | See "v2" in Fig.1))
-            logger.info("Migrating from {v!r}".format(v=old_version))
+            logger.info("migrating from version {v!r}".format(v=old_version))
             return old_db, version_module.migrate.do_update(old_db, old_db=True)
         else:
             # D: _____ + _____ (nothing)
-            logger.debug("No migration for v{v!r}".format(v=old_version))
+            logger.debug("no migration for version {v!r}".format(v=old_version))
             raise ValueError(
                 "The given `version_module` does neither has a `.model` nor a `.migrate` attribute.\n"
                 "Maybe you need a `from . import model, migrate` in the `__init__.py` file?"
@@ -265,14 +265,15 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
             current_version_db = new_version_db
             current_version = new_version
             logger.success(
-                "Upgraded from {old_v!r} to version {new_v!r}{meta_message!r}".format(
+                "Upgraded from version {old_v!r} to v{new_v!r}{meta_message!r}".format(
                     old_v=v, new_v=new_version, meta_message=(
                         (": " + repr(meta["message"])) if "message" in meta else " - Metadata: " + repr(meta)
                 ).strip())
             )
             if new_version != v + 1:
                 logger.warn(
-                    "Migrated from {old_v!r} to {new_v!r}, instead of {should_v!r}, it skipped {diff!r} versions.".format(
+                    "Migrated from version {old_v!r} to v{new_v!r} "
+                    "(instead of v{should_v!r}, it skipped {diff!r} versions)".format(
                         old_v=v, new_v=new_version, should_v=v + 1, diff=new_version - (v + 1)
                     ))
                 # end if
@@ -282,7 +283,7 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
             )
         # end if
     # end for
-    logger.success("Migration done. Was {v_old!r} before, now is {v_new!r}.".format(
+    logger.success("Migration done. Was version {v_old!r} before, now is version {v_new!r}.".format(
         v_old=start_version, v_new=current_version
     ))
     return db
