@@ -41,6 +41,34 @@ The updates are applied as soon as `migrate` is called. It will return `db`, bei
         A file is possible too, if it has the attribute `model` with a function `register_database` (calling `model.register_database(db)`)    
         and optionally a `migrate` attribute with function `do_update` (will call `migrate.do_update(db)`)
 
+### The required functions
+
+###### `model.py`
+
+```python
+def register_database(db):
+```         
+> In this function should be your `orm.Entity` subclasses.
+
+Arguments:
+- `db` - The database to register entities to.
+
+###### `migrate.py`
+
+```python
+def do_update(db, old_db=None):
+```
+> Here you write code which changes stuff in the database
+ 
+Arguments:
+- `db` - The latest schema. 
+- `old_db` - This can have 3 different types:   
+    - `pony.orm.Database` A database schema of the previous migration step (Would be **v0** if we are at **v1**. See _Fig 1_),    
+    - `True` if the provided `db` database is old, and this version didn't introduced a new schema. (See **v2** in _Fig 1_)    
+    - `None` if there was no previous step (The first migration, e.g. **v0**)    
+
+
+
 ### Info graphic
 ![migrations](https://cloud.githubusercontent.com/assets/2737108/25397889/3a75eca2-29ea-11e7-9527-0bb3cc1412ef.png)    
 _Fig 1. Migrations_
