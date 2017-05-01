@@ -47,6 +47,7 @@ def enumerate_migrations(import_path):
 # end def
 
 
+@orm.db_session
 def get_current_version(db):
     """
     This loads the current version from the database.
@@ -57,11 +58,12 @@ def get_current_version(db):
     """
     Version = db.entities["Version"]
     assert_type_or_raise(Version, orm.core.EntityMeta, orm.core.Entity)
-
     db_versions = orm.select(v for v in Version).order_by(orm.desc(Version.version)).limit(1)
+    # end with
     if len(db_versions) != 0:
         db_version = db_versions[0]
     else:
+        logger.debug("no versions found, assuming initial run.")
         db_version = store_new_version(db, 0, meta={"message": "initial creation"})
     # end def
     return db_version
@@ -143,7 +145,9 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
         if hasattr(version_module, "migrate"):
             # A: model + migrate (both | See "v0" or "v1" in Fig.1)
             logger.info("migrating from version {v!r}".format(v=old_version))
-            return new_db, version_module.migrate.do_update(new_db, old_db=old_db)
+            with orm.db_session:
+                return new_db, version_module.migrate.do_update(new_db, old_db=old_db)
+            # end with
         else:
             logger.debug("no migration for version {v!r}".format(v=old_version))
             # B: model + _______ (model only | See "v3" or "v4" in Fig.1))
@@ -154,7 +158,9 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
         if hasattr(version_module, "migrate"):
             # C: _____ + migrate (only migrate | See "v2" in Fig.1))
             logger.info("migrating from version {v!r}".format(v=old_version))
-            return old_db, version_module.migrate.do_update(old_db, old_db=True)
+            with orm.db_session:
+                return old_db, version_module.migrate.do_update(old_db, old_db=True)
+            # end with
         else:
             # D: _____ + _____ (nothing)
             logger.debug("no migration for version {v!r}".format(v=old_version))
