@@ -112,23 +112,16 @@ from database import *
 > import psycopg2
 > con = psycopg2.connect(host=POSTGRES_HOST, user=POSTGRES_USER, password=POSTGRES_PASSWORD, database=POSTGRES_DB)
 > cur = con.cursor()
->
 > # requesting database update lock
-> cur.execute("SELECT pg_try_advisory_lock(85,80);")  # update lock (ascii: UP)
-> res = cur.fetchone()
-> if not isinstance(res[0], bool) or not res[0]:
->     # True = success
->     # Fail => false or no bool
->     raise ValueError("Currently already upgrading. (Advisory Lock 85,80)")
-> # end if
+> cur.execute("SELECT pg_advisory_lock(85,80);")  # update lock (ascii: 85,80 = UP)
 > 
-> 
+>
 > # run the migration
 > db = migrate(...)
 > 
 > 
 > # releasing lock after database update
-> cur.execute("SELECT pg_advisory_unlock(85,80);")  # update lock (ascii: UP)
+> cur.execute("SELECT pg_advisory_unlock(85,80);")  # update lock (ascii: 85,80 = UP)
 > res = cur.fetchone()
 > if not isinstance(res[0], bool) or not res[0]:
 >     # True = success
@@ -136,6 +129,23 @@ from database import *
 >     raise ValueError("Could not release update lock, lock was not held (Advisory Lock 85,80)")
 > # end if
 > ```
+  
+##### I like the script above, but it should just terminate instead of waiting
+
+> Replace the `cur.execute("SELECT pg_advisory_lock(85,80);")` part above with: 
+> ```python
+> # requesting database update lock
+> cur.execute("SELECT pg_try_advisory_lock(85,80);")  # update lock (ascii: 85,80 = UP)
+> res = cur.fetchone()
+> if not isinstance(res[0], bool) or not res[0]:
+>     # True = success
+>     # Fail => false or no bool
+>     raise ValueError("Currently already upgrading. (Advisory Lock 85,80)")
+> # end if
+> ```
+> With that your script will raise an exception (and probably terminate) if the database is already being upgraded somewhere else.    
+> Note: in a webserver (flask, django, ...) environment this is probably not wanted.
+> Like, a Nginx server would keep running, and uWSGI would spam the log with `no python application found, check your startup logs for errors`.
 
 ##### Where does the name come from?
 > Because of the library `Pony ORM`, the verb `to pony up` and this tool doing `updates`!    
