@@ -252,6 +252,7 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
     # get the versions modules
     file_names_found = enumerate_migrations(folder_path)
     logger.debug("found the following migration files: {!r}".format(file_names_found))
+    max_version = 0
     # iterate through the folder with versions
     for name, file_name in dict.items(file_names_found):
         logger.debug("name {!r}, file_name {!r}".format(name, file_name))
@@ -261,6 +262,9 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
         # end def
         try:
             version = int(name[1:])
+            if version > max_version:
+                max_version = version
+            # end if
         except:
             logger.debug("skipping module, version int malformatted.\nExpected format 'v{{number}}', got {module_name!r}".format(module_name=name))
             continue
@@ -296,7 +300,14 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
         db, version_and_meta = do_version(module, bind_database_function, current_version, old_db=db)
         if not version_and_meta:  # is None if no manual execution was run (only the schema loaded)
             logger.info("loaded only the schema schema {v!r}".format(v=current_version))
-            version_and_meta = (current_version + 1, {"message": "automated update (only schema provided)"})
+            if current_version < max_version:
+                logger.debug("storing as version {v!r}, there are more versions to load (max: {max})".format(
+                    v=current_version + 1, max=max_version
+                ))
+                version_and_meta = (current_version + 1, {"message": "automated update (only schema provided)"})
+            else:
+                continue
+            # end if
         new_version, meta = version_and_meta
         new_version_db = store_new_version(db, new_version, meta)
         # Save version for next loop.
