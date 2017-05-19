@@ -2,11 +2,11 @@
 import importlib
 import os
 
+from luckydonaldUtils.exceptions import assert_type_or_raise
+from luckydonaldUtils.logger import logging
 from pony import orm
 
-from luckydonaldUtils.logger import logging
-from luckydonaldUtils.exceptions import assert_or_raise as assert_type_or_raise
-
+from .core import Migrator
 from .errors import MigrationVersionTableAlreadyExists, MigrationVersionWrong
 from .version_db import register_database as _version_db_register_database
 
@@ -135,18 +135,47 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
             "which will run `db.bind(...)` and `db.generate_mapping(...)`."
         )
     # end if
+    model = None
     if hasattr(version_module, "model"):
+        logger.debug("found .model as attribute")
+        model = version_module.model
+    else:
+        try:
+            model = importlib.import_module(version_module.__name__ + ".model")
+            logger.debug("found .model as import")
+        except ImportError:
+            pass
+        # end try
+    # end if
+    migrate = None
+    if hasattr(version_module, "migrate"):
+        logger.debug("found .migrate as attribute")
+        migrate = version_module.model
+    else:
+        try:
+            migrate = importlib.import_module(version_module.__name__ + ".migrate")
+            logger.debug("found .migrate as import")
+        except ImportError:
+            pass
+        # end try
+    # end if
+    if model:
         logger.info("loading model version {v!r}.".format(v=old_version))
         new_db = orm.Database()
         setattr(new_db, "pony_up__version", old_version)
         version_module.model.register_database(new_db)
+        logger.debug("adding version table to model version {v!r}.".format(v=old_version))
         register_version_table(new_db)
+
+        logger.debug("binding model version {v!r} to database.".format(v=old_version))
         bind_database_function(new_db)
-        if hasattr(version_module, "migrate"):
+
+        if migrate:
             # A: model + migrate (both | See "v0" or "v1" in Fig.1)
             logger.info("migrating from version {v!r}".format(v=old_version))
+            migrator = Migrator(old_db, new_db, bind_database_function, old_version, has_new_schema=True)
             with orm.db_session:
-                return new_db, version_module.migrate.do_update(new_db, old_db=old_db)
+                return new_db, version_module.migrate.do_update(migrator)
             # end with
         else:
             logger.debug("no migration for version {v!r}".format(v=old_version))
@@ -155,11 +184,12 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
         # end def
     else:
         logger.info("using old model version {v!r}".format(v=old_version))
-        if hasattr(version_module, "migrate"):
+        if migrate:
             # C: _____ + migrate (only migrate | See "v2" in Fig.1))
             logger.info("migrating from version {v!r}".format(v=old_version))
+            migrator = Migrator(old_db, None, bind_database_function, old_version=old_version, has_new_schema=True)
             with orm.db_session:
-                return old_db, version_module.migrate.do_update(old_db, old_db=True)
+                return old_db, version_module.migrate.do_update(migrator)
             # end with
         else:
             # D: _____ + _____ (nothing)
@@ -264,29 +294,27 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
             )
         # end if
         db, version_and_meta = do_version(module, bind_database_function, current_version, old_db=db)
-        if version_and_meta:
-            new_version, meta = version_and_meta
-            new_version_db = store_new_version(db, new_version, meta)
-            # Save version for next loop.
-            current_version_db = new_version_db
-            current_version = new_version
-            logger.success(
-                "upgraded from version {old_v!r} to v{new_v!r}{meta_message!r}".format(
-                    old_v=v, new_v=new_version, meta_message=(
-                        (": " + repr(meta["message"])) if "message" in meta else " - Metadata: " + repr(meta)
-                ).strip())
-            )
-            if new_version != v + 1:
-                logger.warn(
-                    "migrated from version {old_v!r} to v{new_v!r} "
-                    "(instead of v{should_v!r}, it skipped {diff!r} versions)".format(
-                        old_v=v, new_v=new_version, should_v=v + 1, diff=new_version - (v + 1)
-                    ))
-                # end if
-        else:
-            logger.info(
-                "loaded schema {v!r}".format(v=current_version)
-            )
+        if not version_and_meta:  # is None if no manual execution was run (only the schema loaded)
+            logger.info("loaded only the schema schema {v!r}".format(v=current_version))
+            version_and_meta = (current_version + 1, {"message": "automated update (only schema provided)"})
+        new_version, meta = version_and_meta
+        new_version_db = store_new_version(db, new_version, meta)
+        # Save version for next loop.
+        current_version_db = new_version_db
+        current_version = new_version
+        logger.success(
+            "upgraded from version {old_v!r} to v{new_v!r}{meta_message}".format(
+                old_v=v, new_v=new_version, meta_message=(
+                    (": " + repr(meta["message"])) if "message" in meta else " - Metadata: " + repr(meta)
+            ).strip())
+        )
+        if new_version != v + 1:
+            logger.warn(
+                "migrated from version {old_v!r} to v{new_v!r} "
+                "(instead of v{should_v!r}, it skipped {diff!r} versions)".format(
+                    old_v=v, new_v=new_version, should_v=v + 1, diff=new_version - (v + 1)
+                ))
+            # end if
         # end if
     # end for
     logger.success("migration from version {v_old!r} to version {v_new!r} done.".format(

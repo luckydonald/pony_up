@@ -4,8 +4,6 @@ from uuid import UUID, uuid4
 from pony.orm import *
 from luckydonaldUtils.logger import logging
 
-from secrets import POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB
-
 
 __author__ = 'luckydonald'
 __all__ = ["Test", "User", "Tag"]
@@ -22,6 +20,7 @@ def register_database(db):
         id = PrimaryKey(int)
         name_first = Optional(str, nullable=True)
         name_last = Optional(str, nullable=True)
+        tag = Set("Tag")
 
     class Tag(db.Entity):
         id = PrimaryKey(int, auto=True)

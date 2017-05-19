@@ -1,10 +1,14 @@
+from luckydonaldUtils.logger import logging
 from pony_up import migrate
 from pony import orm
 import os
 
+logger = logging.getLogger(__name__)
+logging.add_colored_handler(level=logging.DEBUG)
+
 
 def bind_to_database(db):
-    db.bind("sqlite", filename="test.db", create_db=True)
+    db.bind("postgres", user='postgres', port=5433, password='', host='localhost', database='postgres')
     db.generate_mapping(create_tables=True)
     # see methods in https://docs.ponyorm.com/api_reference.html?highlight=database#Database
 # end def
@@ -15,9 +19,14 @@ def bind_to_database(db):
 migrations_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), "migrations")
 
 python_import = "migrations"  # Like in `from migrations import v0`
-
-db = migrate(bind_to_database, folder_path=migrations_folder, python_import=python_import)
-
+orm.debug = True
+try:
+    db = migrate(bind_to_database, folder_path=migrations_folder, python_import=python_import)
+except Exception as e:
+    from time import sleep
+    logger.exception("migration")
+    sleep(2)  # to have some time between logging it and crashing.
+    raise e
 # Now use db as usual.
 
 new_user1 = db.User(id=42, name_first="Max", name_last="Mustermann")

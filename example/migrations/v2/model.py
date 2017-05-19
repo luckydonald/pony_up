@@ -9,20 +9,20 @@ __author__ = 'luckydonald'
 __all__ = ["Test", "User", "Tag"]
 logger = logging.getLogger(__name__)
 
-# https://editor.ponyorm.com/user/luckydonald/Tags_14
 
 def register_database(db):
     class Test(db.Entity):
         emoji = Required(unicode, index=True)
         text = Optional(str, nullable=True)
-        # Adding the modified column, there is a fitting migration too.
         modified = Required(datetime, sql_default="NOW()", volatile=True)
+        user = Required("User")
 
     class User(db.Entity):
         id = PrimaryKey(int)
         name_first = Optional(str, nullable=True)
         name_last = Optional(str, nullable=True)
         tag = Set("Tag")
+        tests = Set("Test")
 
     class Tag(db.Entity):
         id = PrimaryKey(int, auto=True)
