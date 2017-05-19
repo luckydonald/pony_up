@@ -301,12 +301,13 @@ def do_all_migrations(bind_database_function, folder_path, python_import):
         if not version_and_meta:  # is None if no manual execution was run (only the schema loaded)
             logger.info("loaded only the schema schema {v!r}".format(v=current_version))
             if current_version < max_version:
-                logger.debug("storing as version {v!r}, there are more versions to load (max: {max})".format(
-                    v=current_version + 1, max=max_version
+                logger.debug("storing as version {new_v!r}, there are more versions to load (curr: {v}, max: {max})".format(
+                    new_v=current_version + 1, max=max_version, v=current_version
                 ))
                 version_and_meta = (current_version + 1, {"message": "automated update (only schema provided)"})
             else:
-                continue
+                logger.debug("version {v!r} this is the newest we have, just loading schema.".format(v=current_version))
+                break
             # end if
         new_version, meta = version_and_meta
         new_version_db = store_new_version(db, new_version, meta)
