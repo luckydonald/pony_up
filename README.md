@@ -28,6 +28,7 @@ def bind_func(db):
 
 db = migrate(bind_func, folder_path="examples/migrations, python_import="examples.migrations")
 ```
+> In case the import in line 1 does not work, see [#1](https://github.com/luckydonald/pony_up/issues/1#issuecomment-448175018) for a workaround.
 
 The updates are applied as soon as `migrate` is called. It will return `db`, being the latest schema.
 
@@ -36,10 +37,12 @@ The updates are applied as soon as `migrate` is called. It will return `db`, bei
     - `v{number}/`: for example "v0"
         - `__init__.py`: needs to import the model and also migrate if present.
         - `model.py`: model of version `{number}`
-        - `migrate.py`: the script which updates from `{number}` to `{number+1}`
+        - `migrate.py`: the script which updates from the model in this folder (`{number}`) to the next version (`{number+1}`).
     - `v{number}.py`:    
         A file is possible too, if it has the attribute `model` with a function `register_database` (calling `model.register_database(db)`)    
-        and optionally a `migrate` attribute with function `do_update` (will call `migrate.do_update(db)`)
+        and optionally a `migrate` attribute with function `do_update` (it will call `migrate.do_update(db)`).
+        
+    However use only one of those, either the folder or the single file.
 
 ### The required functions
 
@@ -75,7 +78,7 @@ _Fig 1. Migrations_
 
 ### FAQ
 ##### How to use
-> See above, or have a look at the example.
+> See above, or have a look at the example folder.
 
 ##### Can I contribute?
 > Please do!    
@@ -104,7 +107,7 @@ from database import *
 > # end for
 > ```
 
-##### My application with the migration will run multible times at the same time
+##### My application with the migration will run multible times at the same time.
 > You need to deploy some sort of locking, because else two clients trying to modify the same tables would end in a disaster.    
 > If you use postgres, you can use [Advisory Locks](https://www.postgresql.org/docs/9.1/static/explicit-locking.html#ADVISORY-LOCKS). (Also see this [blog post with examples](https://hashrocket.com/blog/posts/advisory-locks-in-postgres)).    
 > Request a lock before the `db = migrate(...)`, and release it afterwards:
@@ -130,7 +133,7 @@ from database import *
 > # end if
 > ```
   
-##### I like the script above, but it should just terminate instead of waiting
+##### I like the script above, but it should just terminate instead of waiting,
 
 > Replace the `cur.execute("SELECT pg_advisory_lock(85,80);")` part above with: 
 > ```python
