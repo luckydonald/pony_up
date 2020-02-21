@@ -77,14 +77,14 @@ Arguments:
 _Fig 1. Migrations_
 
 ### FAQ
-##### How to use
+#### How to use
 > See above, or have a look at the example folder.
 
-##### Can I contribute?
+#### Can I contribute?
 > Please do!    
 > Report issues, suggest features, or even submit code!
 
-##### I don't like using `db.{EntityName}`.
+#### I don't like using `db.{EntityName}`.
 Before I have used the file `database.py`, to include all my objects,
 and still like to use the existing import statements. I imported it like the following:
 ```python
@@ -107,7 +107,7 @@ from database import *
 > # end for
 > ```
 
-##### My application with the migration will run multible times at the same time.
+#### My application with the migration will run multible times at the same time.
 > You need to deploy some sort of locking, because else two clients trying to modify the same tables would end in a disaster.    
 > If you use postgres, you can use [Advisory Locks](https://www.postgresql.org/docs/9.1/static/explicit-locking.html#ADVISORY-LOCKS). (Also see this [blog post with examples](https://hashrocket.com/blog/posts/advisory-locks-in-postgres)).    
 > Request a lock before the `db = migrate(...)`, and release it afterwards:
@@ -133,7 +133,7 @@ from database import *
 > # end if
 > ```
   
-##### I like the script above, but it should just terminate instead of waiting,
+#### I like the script above, but it should just terminate instead of waiting,
 
 > Replace the `cur.execute("SELECT pg_advisory_lock(85,80);")` part above with: 
 > ```python
@@ -150,12 +150,13 @@ from database import *
 > Note: in a webserver (flask, django, ...) environment this is probably not wanted.
 > Like, a Nginx server would keep running, and uWSGI would spam the log with `no python application found, check your startup logs for errors`.
 
-##### Where does the name come from?
-> Because of the library `Pony ORM`, the verb `to pony up` and this tool doing `updates`!    
+#### Where does the name come from?
+> Because of the library `Pony ORM`, and this tool doing `updates`!    
 > Got it? Yeah, what a sick joke! Tell your Grandma, too!
+> Also there is the verb `to pony up`, which is not really related.
 
-##### Who is best pony?
+#### Who is best pony?
 > Definitely **Littlepip**! (see [Fallout: Equestria](http://falloutequestria.wikia.com/wiki/Fallout:_Equestria))
 
-##### Why is this FAQ getting stupid now?
+#### Why is this FAQ getting stupid now?
 > lel.
