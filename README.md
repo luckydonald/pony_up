@@ -85,12 +85,12 @@ _Fig 1. Migrations_
 > Report issues, suggest features, or even submit code!
 
 ##### I don't like using `db.{EntityName}`.
-I have used the file `database.py` before, to include all my objects,
-and still like to use the existing import statements. I imported:
+Before I have used the file `database.py`, to include all my objects,
+and still like to use the existing import statements. I imported it like the following:
 ```python
 from database import {EntityName}
 ```
-or even import all the database entities with the wildcard import
+or I have imported all the database entities with the wildcard import like:
 ```python
 from database import *
 ```
