@@ -61,7 +61,7 @@ Arguments:
 ```python
 def do_update(db, old_db=None):
 ```
-> Here you write code which changes stuff in the database
+> Here you write code which changes stuff in the database to get from the current version/folder to the next one.
  
 Arguments:
 - `db` - The latest schema. 
