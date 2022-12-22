@@ -150,7 +150,7 @@ def do_version(version_module, bind_database_function, old_version, old_db=None)
     migrate = None
     if hasattr(version_module, "migrate"):
         logger.debug("found .migrate as attribute")
-        migrate = version_module.model
+        migrate = version_module.migrate
     else:
         try:
             migrate = importlib.import_module(version_module.__name__ + ".migrate")
